@@ -1,0 +1,48 @@
+services:
+
+  wireguard:
+    image: linuxserver/wireguard
+    container_name: wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+      - WG_QUICK_USERSPACE_IMPLEMENTATION=boringtun
+      - WG_DISABLE_AUTO_FIREWALL_RULES=true
+    volumes:
+      - ./wireguard/config:/config/
+      - /lib/modules:/lib/modules:ro
+    ports: []
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+    restart: unless-stopped
+
+  mount:
+    build: ./mount
+    container_name: mount
+    network_mode: service:wireguard
+    depends_on:
+      - wireguard
+    environment:
+      CIFS_USER:
+      CIFS_PASS:
+    volumes:
+      - share-vol:/mnt/share
+
+  app:
+    build: ./app
+    container_name: app
+    network_mode: service:wireguard
+    depends_on:
+      - mount
+    restart: on-failure
+    volumes:
+      - share-vol:/mnt/share
+    working_dir: /app
+    command: ["python", "main.py"]
+
+volumes:
+  share-vol:
